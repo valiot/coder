@@ -1,3 +1,5 @@
+int8
+uint8
 uint16_be
 uint16_le
 int16_be
