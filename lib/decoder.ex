@@ -1,3 +1,8 @@
+#TODO:
+# add __using__ macro
+# change ast -> functions
+# add exit functions.
+
 defmodule Decoder do
   @external_resource mimes_path = Path.join([__DIR__, "data_types.txt"])
 
