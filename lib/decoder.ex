@@ -42,7 +42,6 @@ defmodule Decoder do
       case d_type do
         "float" ->
           :float
-
         _ ->
           :integer
       end
@@ -120,7 +119,28 @@ defmodule Decoder do
              ]}
 
           unquote(data_size) == 4 and unquote(d_type) == "ascii" ->
-            {:=, [],
+            if unquote(endianess) == :little do
+              {:=, [],
+             [
+               {:res, [], __MODULE__},
+               {:<<>>, [],
+                [
+                  {:::, [],
+                   [
+                     {:value_2, [], __MODULE__},
+                     {:-, [context: __MODULE__, import: Kernel],
+                      [{unquote(endianess), [], Elixir}, {:size, [], [unquote(size)]}]}
+                   ]},
+                  {:::, [],
+                   [
+                     {:value_1, [], __MODULE__},
+                     {:-, [context: __MODULE__, import: Kernel],
+                      [{unquote(endianess), [], __MODULE__}, {:size, [], [unquote(size)]}]}
+                   ]}
+                ]}
+             ]}
+            else
+              {:=, [],
              [
                {:res, [], __MODULE__},
                {:<<>>, [],
@@ -139,6 +159,7 @@ defmodule Decoder do
                    ]}
                 ]}
              ]}
+            end
 
           true ->
             {:=, [],
@@ -247,7 +268,28 @@ defmodule Decoder do
              ]}
 
           unquote(data_size) == 4 and unquote(d_type) == "ascii" ->
-            {:=, [],
+            if unquote(endianess) == :little do
+              {:=, [],
+             [
+               {:res, [], __MODULE__},
+               {:<<>>, [],
+                [
+                  {:::, [],
+                   [
+                     {:value_2, [], __MODULE__},
+                     {:-, [context: __MODULE__, import: Kernel],
+                      [{unquote(endianess), [], Elixir}, {:size, [], [unquote(size)]}]}
+                   ]},
+                  {:::, [],
+                   [
+                     {:value_1, [], __MODULE__},
+                     {:-, [context: __MODULE__, import: Kernel],
+                      [{unquote(endianess), [], __MODULE__}, {:size, [], [unquote(size)]}]}
+                   ]}
+                ]}
+             ]}
+            else
+              {:=, [],
              [
                {:res, [], __MODULE__},
                {:<<>>, [],
@@ -266,6 +308,7 @@ defmodule Decoder do
                    ]}
                 ]}
              ]}
+            end
 
           true ->
             {:=, [],
