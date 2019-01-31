@@ -4,6 +4,6 @@ defmodule DecoderTest do
   doctest Decoder
 
   test "greets the world" do
-    assert Decoder.decode_all("float32_be", <<0x42,0xdc,0x00,0x00>>, []) == {[110.0], ""}
+    assert Decoder.decode_all("float32_be", <<0x42, 0xDC, 0x00, 0x00>>, []) == {[110.0], ""}
   end
 end
