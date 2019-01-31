@@ -1,6 +1,4 @@
 # TODO:
-# add __using__ macro
-# change ast -> functions
 # add exit functions.
 
 defmodule Decoder do
@@ -12,351 +10,93 @@ defmodule Decoder do
     end
   end
 
+  defmacro split(bin, n) do
+    quote do
+      {:<<>>, _, byte_list} = unquote(bin)
+      byte_list
+        |> Enum.split(unquote(n))
+        |> Tuple.to_list()
+        |> Enum.map(fn x -> :binary.list_to_bin(x) end)
+    end
+  end
+
+  def split_def(bin, n) do
+    bin
+      |> :binary.bin_to_list()
+      |> Enum.split(n)
+      |> Tuple.to_list()
+      |> Enum.map(fn x -> :binary.list_to_bin(x) end)
+  end
+
   for line <- File.stream!(mimes_path, [], :line) do
     data_type = String.trim(line)
-    str_type = String.replace(data_type, ~r/[\d]/, "") |> String.split(~r/[_]/)
+    defmacro decode_all(unquote(data_type), raw_data, acc) do
+      #parsing data_type_string -> endianess, data_type, sign and size
+      str_type = String.replace(unquote(data_type), ~r/[\d]/, "") |> String.split(~r/[_]/)
+      {d_type, endianess} =
+        case str_type do
+          [d_type] ->
+            {d_type, quote(do: big)}
 
-    {d_type, endianess} =
-      case str_type do
-        [d_type] ->
-          {d_type, :big}
-
-        [d_type, endianess] ->
-          if endianess == "be" do
-            {d_type, :big}
-          else
-            {d_type, :little}
-          end
-      end
-
-    data_size = String.replace(data_type, ~r/[^\d]/, "") |> String.to_integer()
-
-    sign =
-      if String.starts_with?(d_type, "u") do
-        :unsigned
-      else
-        :signed
-      end
-
-    a_type =
-      case d_type do
-        "float" ->
-          :float
-        _ ->
-          :integer
-      end
-
-    size =
-      if data_size != 8 do
-        16
-      else
-        8
-      end
-
-    defmacro decode_data_type_l(unquote(data_type), raw_data, acc) do
-      fn1 =
-        cond do
-          unquote(data_size) == 32 or (unquote(data_size) == 4 and unquote(d_type) == "ascii") ->
-            {:=, [],
-             [
-               [
-                 {:value_1, [], __MODULE__},
-                 {:|, [], [{:value_2, [], __MODULE__}, {:values_tail, [], __MODULE__}]}
-               ],
-               raw_data
-             ]}
-
-          true ->
-            {:=, [],
-             [
-               [{:|, [], [{:value, [], __MODULE__}, {:values_tail, [], __MODULE__}]}],
-               raw_data
-             ]}
+          [d_type, str_endianess] ->
+            if str_endianess == "be" do
+              {d_type, quote(do: big)}
+            else
+              {d_type, quote(do: little)}
+            end
         end
 
-      fn2 =
+      data_size = String.replace(unquote(data_type) , ~r/[^\d]/, "") |> String.to_integer()
+
+      sign =
+        if String.starts_with?(d_type, "u") do
+          quote(do: unsigned)
+        else
+          quote(do: signed)
+        end
+
+      a_type =
+        case d_type do
+          "float" ->
+            quote(do: float)
+          _ ->
+            quote(do: integer)
+        end
+
+        size = div(data_size, 8)
+
+        # quote do
+        #   [value, values_tail] = split(unquote(raw_data), unquote (size)
+        # end
+       [value, values_tail] = split(raw_data, size)
+        value = <<0x42,0xcd,0x00,0x00>>
+        values_tail = ""
+      fn1 =
         cond do
-          unquote(data_size) == 32 ->
-            {:=, [],
-             [
-               {:<<>>, [],
-                [
-                  {:::, [],
-                   [
-                     {:res, [], __MODULE__},
-                     {:-, [context: __MODULE__, import: Kernel],
-                      [
-                        {:-, [context: __MODULE__, import: Kernel],
-                         [
-                           {:-, [context: __MODULE__, import: Kernel],
-                            [{unquote(a_type), [], __MODULE__}, {unquote(sign), [], __MODULE__}]},
-                           {unquote(endianess), [], __MODULE__}
-                         ]},
-                        {:size, [], [unquote(data_size)]}
-                      ]}
-                   ]}
-                ]},
-               {:<<>>, [],
-                [
-                  {:::, [], [{:value_1, [], __MODULE__}, {:size, [], [unquote(size)]}]},
-                  {:::, [], [{:value_2, [], __MODULE__}, {:size, [], [unquote(size)]}]}
-                ]}
-             ]}
-
-          unquote(data_size) == 2 and unquote(d_type) == "ascii" ->
-            {:=, [],
-             [
-               {:res, [], __MODULE__},
-               {:<<>>, [],
-                [
-                  {:::, [],
-                   [
-                     {:value, [], __MODULE__},
-                     {:-, [context: __MODULE__, import: Kernel],
-                      [{unquote(endianess), [], __MODULE__}, {:size, [], [unquote(size)]}]}
-                   ]}
-                ]}
-             ]}
-
-          unquote(data_size) == 4 and unquote(d_type) == "ascii" ->
-            if unquote(endianess) == :little do
-              {:=, [],
-             [
-               {:res, [], __MODULE__},
-               {:<<>>, [],
-                [
-                  {:::, [],
-                   [
-                     {:value_2, [], __MODULE__},
-                     {:-, [context: __MODULE__, import: Kernel],
-                      [{unquote(endianess), [], Elixir}, {:size, [], [unquote(size)]}]}
-                   ]},
-                  {:::, [],
-                   [
-                     {:value_1, [], __MODULE__},
-                     {:-, [context: __MODULE__, import: Kernel],
-                      [{unquote(endianess), [], __MODULE__}, {:size, [], [unquote(size)]}]}
-                   ]}
-                ]}
-             ]}
+          d_type == "ascii" ->
+            if endianess == quote(do: big) do
+              quote(do: res = unquote value)
             else
-              {:=, [],
-             [
-               {:res, [], __MODULE__},
-               {:<<>>, [],
-                [
-                  {:::, [],
-                   [
-                     {:value_1, [], __MODULE__},
-                     {:-, [context: __MODULE__, import: Kernel],
-                      [{unquote(endianess), [], Elixir}, {:size, [], [unquote(size)]}]}
-                   ]},
-                  {:::, [],
-                   [
-                     {:value_2, [], __MODULE__},
-                     {:-, [context: __MODULE__, import: Kernel],
-                      [{unquote(endianess), [], __MODULE__}, {:size, [], [unquote(size)]}]}
-                   ]}
-                ]}
-             ]}
+              quote(do: res = unquote String.reverse(value))
             end
-
           true ->
-            {:=, [],
-             [
-               {:<<>>, [],
-                [
-                  {:::, [],
-                   [
-                     {:res, [], __MODULE__},
-                     {:-, [context: __MODULE__, import: Kernel],
-                      [
-                        {:-, [context: __MODULE__, import: Kernel],
-                         [
-                           {:-, [context: __MODULE__, import: Kernel],
-                            [{unquote(a_type), [], __MODULE__}, {unquote(sign), [], __MODULE__}]},
-                           {unquote(endianess), [], __MODULE__}
-                         ]},
-                        {:size, [], [unquote(size)]}
-                      ]}
-                   ]}
-                ]},
-               {:<<>>, [], [{:::, [], [{:value, [], __MODULE__}, {:size, [], [unquote(size)]}]}]}
-             ]}
+            quote(do: <<res::unquote(a_type)-unquote(endianess)-unquote(sign)-size(unquote(data_size))>> = unquote(value))
         end
 
       fn_end =
         quote do
           unquote(fn1)
-          unquote(fn2)
           acc = unquote(acc) ++ [res]
-          {acc, values_tail}
+          {acc, unquote values_tail}
         end
-
       fn_end
     end
-
-    defmacro decode_data_type(unquote(data_type), raw_data, acc) do
-      fn1 =
-        cond do
-          unquote(data_size) == 32 or (unquote(data_size) == 4 and unquote(d_type) == "ascii") ->
-            {:=, [],
-             [
-               {:<<>>, [],
-                [
-                  {:::, [], [{:value_1, [], __MODULE__}, {:size, [], [unquote(size)]}]},
-                  {:::, [], [{:value_2, [], __MODULE__}, {:size, [], [unquote(size)]}]},
-                  {:::, [], [{:values_tail, [], __MODULE__}, {:binary, [], __MODULE__}]}
-                ]},
-               raw_data
-             ]}
-
-          true ->
-            {:=, [],
-             [
-               {:<<>>, [],
-                [
-                  {:::, [], [{:value, [], __MODULE__}, {:size, [], [unquote(size)]}]},
-                  {:::, [], [{:values_tail, [], __MODULE__}, {:binary, [], __MODULE__}]}
-                ]},
-               raw_data
-             ]}
-        end
-
-      fn2 =
-        cond do
-          unquote(data_size) == 32 ->
-            {:=, [],
-             [
-               {:<<>>, [],
-                [
-                  {:::, [],
-                   [
-                     {:res, [], __MODULE__},
-                     {:-, [context: __MODULE__, import: Kernel],
-                      [
-                        {:-, [context: __MODULE__, import: Kernel],
-                         [
-                           {:-, [context: __MODULE__, import: Kernel],
-                            [{unquote(a_type), [], __MODULE__}, {unquote(sign), [], __MODULE__}]},
-                           {unquote(endianess), [], __MODULE__}
-                         ]},
-                        {:size, [], [unquote(data_size)]}
-                      ]}
-                   ]}
-                ]},
-               {:<<>>, [],
-                [
-                  {:::, [], [{:value_1, [], __MODULE__}, {:size, [], [unquote(size)]}]},
-                  {:::, [], [{:value_2, [], __MODULE__}, {:size, [], [unquote(size)]}]}
-                ]}
-             ]}
-
-          unquote(data_size) == 2 and unquote(d_type) == "ascii" ->
-            {:=, [],
-             [
-               {:res, [], __MODULE__},
-               {:<<>>, [],
-                [
-                  {:::, [],
-                   [
-                     {:value, [], __MODULE__},
-                     {:-, [context: __MODULE__, import: Kernel],
-                      [{unquote(endianess), [], __MODULE__}, {:size, [], [unquote(size)]}]}
-                   ]}
-                ]}
-             ]}
-
-          unquote(data_size) == 4 and unquote(d_type) == "ascii" ->
-            if unquote(endianess) == :little do
-              {:=, [],
-             [
-               {:res, [], __MODULE__},
-               {:<<>>, [],
-                [
-                  {:::, [],
-                   [
-                     {:value_2, [], __MODULE__},
-                     {:-, [context: __MODULE__, import: Kernel],
-                      [{unquote(endianess), [], Elixir}, {:size, [], [unquote(size)]}]}
-                   ]},
-                  {:::, [],
-                   [
-                     {:value_1, [], __MODULE__},
-                     {:-, [context: __MODULE__, import: Kernel],
-                      [{unquote(endianess), [], __MODULE__}, {:size, [], [unquote(size)]}]}
-                   ]}
-                ]}
-             ]}
-            else
-              {:=, [],
-             [
-               {:res, [], __MODULE__},
-               {:<<>>, [],
-                [
-                  {:::, [],
-                   [
-                     {:value_1, [], __MODULE__},
-                     {:-, [context: __MODULE__, import: Kernel],
-                      [{unquote(endianess), [], Elixir}, {:size, [], [unquote(size)]}]}
-                   ]},
-                  {:::, [],
-                   [
-                     {:value_2, [], __MODULE__},
-                     {:-, [context: __MODULE__, import: Kernel],
-                      [{unquote(endianess), [], __MODULE__}, {:size, [], [unquote(size)]}]}
-                   ]}
-                ]}
-             ]}
-            end
-
-          true ->
-            {:=, [],
-             [
-               {:<<>>, [],
-                [
-                  {:::, [],
-                   [
-                     {:res, [], __MODULE__},
-                     {:-, [context: __MODULE__, import: Kernel],
-                      [
-                        {:-, [context: __MODULE__, import: Kernel],
-                         [
-                           {:-, [context: __MODULE__, import: Kernel],
-                            [{unquote(a_type), [], __MODULE__}, {unquote(sign), [], __MODULE__}]},
-                           {unquote(endianess), [], __MODULE__}
-                         ]},
-                        {:size, [], [unquote(size)]}
-                      ]}
-                   ]}
-                ]},
-               {:<<>>, [], [{:::, [], [{:value, [], __MODULE__}, {:size, [], [unquote(size)]}]}]}
-             ]}
-        end
-
-      fn_end =
-        quote do
-          unquote(fn1)
-          unquote(fn2)
-          acc = unquote(acc) ++ [res]
-          {acc, values_tail}
-        end
-
-      fn_end
-    end
-
-    def decode(unquote(data_type), raw_data, acc) when is_list(raw_data),
-      do: decode_data_type_l(unquote(data_type), raw_data, acc)
-
-    def decode(unquote(data_type), raw_data, acc),
-      do: decode_data_type(unquote(data_type), raw_data, acc)
+    # def decode(unquote(data_type), raw_data, acc) do
+    #   decode_all(unquote(data_type), raw_data, acc)
+    # end
   end
 
-  defmacro decode_data_type(_data_type, raw_data, _acc) when is_list(raw_data) do
-    IO.puts("No es valido el tipo de dato (lista)")
-  end
-
-  defmacro decode_data_type(_data_type, _raw_data, _acc) do
+  defmacro decode_all(_data_type, _raw_data, _acc) do
     IO.puts("No es valido el tipo de dato (bin)")
   end
 
