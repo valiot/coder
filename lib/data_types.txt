@@ -5,7 +5,7 @@ uint16_le
 int16_be
 int16_le
 ascii16_be
-ascii116_le
+ascii16_le
 uint32_be
 uint32_le
 int32_be
