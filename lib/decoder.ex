@@ -1,10 +1,10 @@
-# TODO:
-# add __using__ macro
-# change ast -> functions
-# add exit functions.
-
+# todo: add decode_split(unquote(data_type), value)
 defmodule Decoder do
   @external_resource mimes_path = Path.join([__DIR__, "data_types.txt"])
+  @moduledoc """
+  A module to decode raw bitstring into standard data_type (look at data_types.txt)
+  """
+  require Logger
 
   defmacro __using__(_) do
     quote do
@@ -14,354 +14,133 @@ defmodule Decoder do
 
   for line <- File.stream!(mimes_path, [], :line) do
     data_type = String.trim(line)
-    str_type = String.replace(data_type, ~r/[\d]/, "") |> String.split(~r/[_]/)
 
-    {d_type, endianess} =
-      case str_type do
-        [d_type] ->
-          {d_type, :big}
+    defmacro decode_spec(unquote(data_type), raw_data) do
+      # parsing data_type_string -> endianess, data_type, sign and size
+      str_type = String.replace(unquote(data_type), ~r/[\d]/, "") |> String.split(~r/[_]/)
 
-        [d_type, endianess] ->
-          if endianess == "be" do
-            {d_type, :big}
-          else
-            {d_type, :little}
-          end
-      end
+      {d_type, endianess, str_endian} =
+        case str_type do
+          [d_type] ->
+            {d_type, quote(do: big), nil}
 
-    data_size = String.replace(data_type, ~r/[^\d]/, "") |> String.to_integer()
-
-    sign =
-      if String.starts_with?(d_type, "u") do
-        :unsigned
-      else
-        :signed
-      end
-
-    a_type =
-      case d_type do
-        "float" ->
-          :float
-        _ ->
-          :integer
-      end
-
-    size =
-      if data_size != 8 do
-        16
-      else
-        8
-      end
-
-    defmacro decode_data_type_l(unquote(data_type), raw_data, acc) do
-      fn1 =
-        cond do
-          unquote(data_size) == 32 or (unquote(data_size) == 4 and unquote(d_type) == "ascii") ->
-            {:=, [],
-             [
-               [
-                 {:value_1, [], __MODULE__},
-                 {:|, [], [{:value_2, [], __MODULE__}, {:values_tail, [], __MODULE__}]}
-               ],
-               raw_data
-             ]}
-
-          true ->
-            {:=, [],
-             [
-               [{:|, [], [{:value, [], __MODULE__}, {:values_tail, [], __MODULE__}]}],
-               raw_data
-             ]}
+          [d_type, str_endianess] ->
+            if str_endianess == "be" do
+              {d_type, quote(do: big), "be"}
+            else
+              {d_type, quote(do: little), "le"}
+            end
         end
 
-      fn2 =
-        cond do
-          unquote(data_size) == 32 ->
-            {:=, [],
-             [
-               {:<<>>, [],
-                [
-                  {:::, [],
-                   [
-                     {:res, [], __MODULE__},
-                     {:-, [context: __MODULE__, import: Kernel],
-                      [
-                        {:-, [context: __MODULE__, import: Kernel],
-                         [
-                           {:-, [context: __MODULE__, import: Kernel],
-                            [{unquote(a_type), [], __MODULE__}, {unquote(sign), [], __MODULE__}]},
-                           {unquote(endianess), [], __MODULE__}
-                         ]},
-                        {:size, [], [unquote(data_size)]}
-                      ]}
-                   ]}
-                ]},
-               {:<<>>, [],
-                [
-                  {:::, [], [{:value_1, [], __MODULE__}, {:size, [], [unquote(size)]}]},
-                  {:::, [], [{:value_2, [], __MODULE__}, {:size, [], [unquote(size)]}]}
-                ]}
-             ]}
+      data_size = String.replace(unquote(data_type), ~r/[^\d]/, "") |> String.to_integer()
 
-          unquote(data_size) == 2 and unquote(d_type) == "ascii" ->
-            {:=, [],
-             [
-               {:res, [], __MODULE__},
-               {:<<>>, [],
-                [
-                  {:::, [],
-                   [
-                     {:value, [], __MODULE__},
-                     {:-, [context: __MODULE__, import: Kernel],
-                      [{unquote(endianess), [], __MODULE__}, {:size, [], [unquote(size)]}]}
-                   ]}
-                ]}
-             ]}
+      sign =
+        if String.starts_with?(d_type, "u") do
+          quote(do: unsigned)
+        else
+          quote(do: signed)
+        end
 
-          unquote(data_size) == 4 and unquote(d_type) == "ascii" ->
-            if unquote(endianess) == :little do
-              {:=, [],
-             [
-               {:res, [], __MODULE__},
-               {:<<>>, [],
-                [
-                  {:::, [],
-                   [
-                     {:value_2, [], __MODULE__},
-                     {:-, [context: __MODULE__, import: Kernel],
-                      [{unquote(endianess), [], Elixir}, {:size, [], [unquote(size)]}]}
-                   ]},
-                  {:::, [],
-                   [
-                     {:value_1, [], __MODULE__},
-                     {:-, [context: __MODULE__, import: Kernel],
-                      [{unquote(endianess), [], __MODULE__}, {:size, [], [unquote(size)]}]}
-                   ]}
-                ]}
-             ]}
-            else
-              {:=, [],
-             [
-               {:res, [], __MODULE__},
-               {:<<>>, [],
-                [
-                  {:::, [],
-                   [
-                     {:value_1, [], __MODULE__},
-                     {:-, [context: __MODULE__, import: Kernel],
-                      [{unquote(endianess), [], Elixir}, {:size, [], [unquote(size)]}]}
-                   ]},
-                  {:::, [],
-                   [
-                     {:value_2, [], __MODULE__},
-                     {:-, [context: __MODULE__, import: Kernel],
-                      [{unquote(endianess), [], __MODULE__}, {:size, [], [unquote(size)]}]}
-                   ]}
-                ]}
-             ]}
+      a_type =
+        case d_type do
+          "float" ->
+            quote(do: float)
+
+          _ ->
+            quote(do: integer)
+        end
+
+      # decoding functions
+      fn1 =
+        quote do
+          size = div(unquote(data_size), 8)
+
+          [value, values_tail] =
+            unquote(raw_data)
+            |> :binary.bin_to_list()
+            |> Enum.split(size)
+            |> Tuple.to_list()
+            |> Enum.map(fn x -> :binary.list_to_bin(x) end)
+
+          decode_value =
+            cond do
+              unquote(d_type) == "ascii" ->
+                if unquote(str_endian) == "be" do
+                  value
+                else
+                  String.reverse(value)
+                end
+
+              true ->
+                <<res::unquote(a_type)-unquote(endianess)-unquote(sign)-size(unquote(data_size))>> =
+                  value
+
+                res
             end
 
-          true ->
-            {:=, [],
-             [
-               {:<<>>, [],
-                [
-                  {:::, [],
-                   [
-                     {:res, [], __MODULE__},
-                     {:-, [context: __MODULE__, import: Kernel],
-                      [
-                        {:-, [context: __MODULE__, import: Kernel],
-                         [
-                           {:-, [context: __MODULE__, import: Kernel],
-                            [{unquote(a_type), [], __MODULE__}, {unquote(sign), [], __MODULE__}]},
-                           {unquote(endianess), [], __MODULE__}
-                         ]},
-                        {:size, [], [unquote(size)]}
-                      ]}
-                   ]}
-                ]},
-               {:<<>>, [], [{:::, [], [{:value, [], __MODULE__}, {:size, [], [unquote(size)]}]}]}
-             ]}
+          # acc = unquote(acc) ++ [decode_value]
+          # {acc, values_tail}
+          {decode_value, values_tail}
         end
 
-      fn_end =
-        quote do
-          unquote(fn1)
-          unquote(fn2)
-          acc = unquote(acc) ++ [res]
-          {acc, values_tail}
-        end
-
-      fn_end
+      fn1
     end
 
-    defmacro decode_data_type(unquote(data_type), raw_data, acc) do
-      fn1 =
-        cond do
-          unquote(data_size) == 32 or (unquote(data_size) == 4 and unquote(d_type) == "ascii") ->
-            {:=, [],
-             [
-               {:<<>>, [],
-                [
-                  {:::, [], [{:value_1, [], __MODULE__}, {:size, [], [unquote(size)]}]},
-                  {:::, [], [{:value_2, [], __MODULE__}, {:size, [], [unquote(size)]}]},
-                  {:::, [], [{:values_tail, [], __MODULE__}, {:binary, [], __MODULE__}]}
-                ]},
-               raw_data
-             ]}
+    # def decode_split(unquote(data_type), value) do
+    #   data_size = String.replace(unquote(data_type), ~r/[^\d]/, "") |> String.to_integer()
+    #   size = div(data_size, 8)
+    #   bytes = <<value::size(size)>>
+    #   bytes
+    # end
 
-          true ->
-            {:=, [],
-             [
-               {:<<>>, [],
-                [
-                  {:::, [], [{:value, [], __MODULE__}, {:size, [], [unquote(size)]}]},
-                  {:::, [], [{:values_tail, [], __MODULE__}, {:binary, [], __MODULE__}]}
-                ]},
-               raw_data
-             ]}
-        end
-
-      fn2 =
-        cond do
-          unquote(data_size) == 32 ->
-            {:=, [],
-             [
-               {:<<>>, [],
-                [
-                  {:::, [],
-                   [
-                     {:res, [], __MODULE__},
-                     {:-, [context: __MODULE__, import: Kernel],
-                      [
-                        {:-, [context: __MODULE__, import: Kernel],
-                         [
-                           {:-, [context: __MODULE__, import: Kernel],
-                            [{unquote(a_type), [], __MODULE__}, {unquote(sign), [], __MODULE__}]},
-                           {unquote(endianess), [], __MODULE__}
-                         ]},
-                        {:size, [], [unquote(data_size)]}
-                      ]}
-                   ]}
-                ]},
-               {:<<>>, [],
-                [
-                  {:::, [], [{:value_1, [], __MODULE__}, {:size, [], [unquote(size)]}]},
-                  {:::, [], [{:value_2, [], __MODULE__}, {:size, [], [unquote(size)]}]}
-                ]}
-             ]}
-
-          unquote(data_size) == 2 and unquote(d_type) == "ascii" ->
-            {:=, [],
-             [
-               {:res, [], __MODULE__},
-               {:<<>>, [],
-                [
-                  {:::, [],
-                   [
-                     {:value, [], __MODULE__},
-                     {:-, [context: __MODULE__, import: Kernel],
-                      [{unquote(endianess), [], __MODULE__}, {:size, [], [unquote(size)]}]}
-                   ]}
-                ]}
-             ]}
-
-          unquote(data_size) == 4 and unquote(d_type) == "ascii" ->
-            if unquote(endianess) == :little do
-              {:=, [],
-             [
-               {:res, [], __MODULE__},
-               {:<<>>, [],
-                [
-                  {:::, [],
-                   [
-                     {:value_2, [], __MODULE__},
-                     {:-, [context: __MODULE__, import: Kernel],
-                      [{unquote(endianess), [], Elixir}, {:size, [], [unquote(size)]}]}
-                   ]},
-                  {:::, [],
-                   [
-                     {:value_1, [], __MODULE__},
-                     {:-, [context: __MODULE__, import: Kernel],
-                      [{unquote(endianess), [], __MODULE__}, {:size, [], [unquote(size)]}]}
-                   ]}
-                ]}
-             ]}
-            else
-              {:=, [],
-             [
-               {:res, [], __MODULE__},
-               {:<<>>, [],
-                [
-                  {:::, [],
-                   [
-                     {:value_1, [], __MODULE__},
-                     {:-, [context: __MODULE__, import: Kernel],
-                      [{unquote(endianess), [], Elixir}, {:size, [], [unquote(size)]}]}
-                   ]},
-                  {:::, [],
-                   [
-                     {:value_2, [], __MODULE__},
-                     {:-, [context: __MODULE__, import: Kernel],
-                      [{unquote(endianess), [], __MODULE__}, {:size, [], [unquote(size)]}]}
-                   ]}
-                ]}
-             ]}
-            end
-
-          true ->
-            {:=, [],
-             [
-               {:<<>>, [],
-                [
-                  {:::, [],
-                   [
-                     {:res, [], __MODULE__},
-                     {:-, [context: __MODULE__, import: Kernel],
-                      [
-                        {:-, [context: __MODULE__, import: Kernel],
-                         [
-                           {:-, [context: __MODULE__, import: Kernel],
-                            [{unquote(a_type), [], __MODULE__}, {unquote(sign), [], __MODULE__}]},
-                           {unquote(endianess), [], __MODULE__}
-                         ]},
-                        {:size, [], [unquote(size)]}
-                      ]}
-                   ]}
-                ]},
-               {:<<>>, [], [{:::, [], [{:value, [], __MODULE__}, {:size, [], [unquote(size)]}]}]}
-             ]}
-        end
-
-      fn_end =
-        quote do
-          unquote(fn1)
-          unquote(fn2)
-          acc = unquote(acc) ++ [res]
-          {acc, values_tail}
-        end
-
-      fn_end
-    end
-
-    def decode(unquote(data_type), raw_data, acc) when is_list(raw_data),
-      do: decode_data_type_l(unquote(data_type), raw_data, acc)
-
-    def decode(unquote(data_type), raw_data, acc),
-      do: decode_data_type(unquote(data_type), raw_data, acc)
+    def decode(unquote(data_type), raw_data),
+      do: decode_spec(unquote(data_type), raw_data)
   end
 
-  defmacro decode_data_type(_data_type, raw_data, _acc) when is_list(raw_data) do
-    IO.puts("No es valido el tipo de dato (lista)")
+  defmacro decode_spec(data_type, _raw_data) do
+    IO.puts("\"#{data_type}\" not supported")
   end
 
-  defmacro decode_data_type(_data_type, _raw_data, _acc) do
-    IO.puts("No es valido el tipo de dato (bin)")
-  end
-
-  def decode(_data_type, _raw_data, _acc) do
-    IO.puts("Invalid Data_type")
+  @doc """
+  Decodes a binary `raw_data` according to "data_type" specification.
+  """
+  @spec decode(binary(), binary()) :: {binary(), binary()} | :error
+  def decode(data_type, _raw_data) do
+    IO.puts("\"#{data_type}\" not supported")
     :error
+  end
+
+  @doc """
+  Decodes a `raw_list` of bitstrings (in which each elements has `n_bits`) to the corresponding
+  data_type in `data_type_list` list.
+  """
+  def decode_list(data_type_list, raw_list, n_bits)
+      when is_list(raw_list) and is_list(data_type_list) do
+    raw_data = list_to_binary(raw_list, n_bits, <<>>)
+    decode_all(data_type_list, raw_data, [])
+  end
+
+  @doc """
+  Decodes a raw bitstring to the corresponding data_type in `data_type_list` list.
+  """
+  def decode_all([], "", acc), do: acc
+  def decode_all(_data_type, "", _acc), do: :badargs
+  def decode_all([], _value, _acc), do: :badargs
+
+  def decode_all([actual_type | tail], values, acc) when is_bitstring(values) do
+    {value, rest} = decode(actual_type, values)
+    acc = acc ++ [value]
+    decode_all(tail, rest, acc)
+  end
+
+  def list_to_binary([], _n_bytes, acc), do: acc
+
+  def list_to_binary(_raw_list, n_bytes, _acc) when rem(n_bytes, 8) != 0,
+    do: IO.puts("Error in lists element size")
+
+  def list_to_binary([value | tail] = raw_list, n_bits, acc) when is_list(raw_list) do
+    bytes = <<value::size(n_bits)>>
+    acc = acc <> bytes
+    list_to_binary(tail, n_bits, acc)
   end
 end
