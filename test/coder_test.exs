@@ -176,23 +176,23 @@ defmodule CoderTest do
     assert decode("uint8", 65500) == <<0xDC>>
     assert decode("int8", 65500) == <<0xDC>>
     assert decode("uint16_be", 10992) == <<42, 240>>
-    assert decode("int16_be", 68768) ==  <<12, 160>>
+    assert decode("int16_be", 68768) == <<12, 160>>
     assert decode("uint16_le", 10992) == <<240, 42>>
-    assert decode("int16_le", 68768) ==  <<160, 12>>
-    assert decode("uint32_be", 268500992) == <<0x10, 0x01, 0x00, 0x00>>
-    assert decode("int32_be", 4059168768) == <<0xF1, 0xF2, 0x00, 0x00>>
-    assert decode("uint32_le", 268500992) == <<0x00, 0x00, 0x01, 0x10>>
-    assert decode("int32_le", 4059168768) == <<0x00, 0x00, 0xF2, 0xF1>>
+    assert decode("int16_le", 68768) == <<160, 12>>
+    assert decode("uint32_be", 268_500_992) == <<0x10, 0x01, 0x00, 0x00>>
+    assert decode("int32_be", 4_059_168_768) == <<0xF1, 0xF2, 0x00, 0x00>>
+    assert decode("uint32_le", 268_500_992) == <<0x00, 0x00, 0x01, 0x10>>
+    assert decode("int32_le", 4_059_168_768) == <<0x00, 0x00, 0xF2, 0xF1>>
 
     assert decode("float32_be", 5.0) == <<64, 160, 0, 0>>
-    assert decode("float32_be", -5.0) ==  <<192, 160, 0, 0>>
+    assert decode("float32_be", -5.0) == <<192, 160, 0, 0>>
     assert decode("float32_le", 5.0) == <<0, 0, 160, 64>>
     assert decode("float32_le", -5.0) == <<0, 0, 160, 192>>
   end
 
   test "Decode function rounds float input" do
     assert decode("int32_be", 5.5) == <<0, 0, 0, 6>>
-    assert decode("float32_be", -5.0) ==  <<192, 160, 0, 0>>
+    assert decode("float32_be", -5.0) == <<192, 160, 0, 0>>
   end
 
   test "Decode a number into a list of words" do

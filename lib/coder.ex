@@ -78,8 +78,6 @@ defmodule Coder do
                 res
             end
 
-          # acc = unquote(acc) ++ [encode_value]
-          # {acc, values_tail}
           {encode_value, values_tail}
         end
 
@@ -118,17 +116,20 @@ defmodule Coder do
             {quote(do: float), raw_data}
 
           _ ->
-            {quote(do: integer), quote do: round(unquote(raw_data))}
+            {quote(do: integer), quote(do: round(unquote(raw_data)))}
         end
 
       # decoding functions
       quote do
-        <<unquote(raw_data)::unquote(a_type)-unquote(endianess)-unquote(sign)-size(unquote(data_size))>>
+        <<unquote(raw_data)::unquote(a_type)-unquote(endianess)-unquote(sign)-size(
+            unquote(data_size)
+          )>>
       end
     end
 
     def encode(unquote(data_type), raw_data),
       do: encode_spec(unquote(data_type), raw_data)
+
     def decode(unquote(data_type), raw_data),
       do: decode_spec(unquote(data_type), raw_data)
   end
@@ -171,6 +172,7 @@ defmodule Coder do
 
   def binary_to_list(<<>>, acc), do: acc
   def binary_to_list(<<bin>>, acc), do: acc ++ [bin]
+
   def binary_to_list(<<byte1, byte2>> <> tail, acc) do
     <<word::size(16)>> = <<byte1, byte2>>
     acc = acc ++ [word]
