@@ -10,7 +10,7 @@ by adding `decoder` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:decoder, "~> 0.1.0"}
+    {:coder, "~> 0.1.0"}
   ]
 end
 ```
