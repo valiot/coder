@@ -63,19 +63,23 @@ defmodule Coder do
             |> Enum.map(fn x -> :binary.list_to_bin(x) end)
 
           encode_value =
-            cond do
-              unquote(d_type) == "ascii" ->
+            case unquote(d_type) do
+              "ascii" ->
                 if unquote(str_endian) == "be" do
                   value
                 else
                   String.reverse(value)
                 end
 
-              true ->
-                <<res::unquote(a_type)-unquote(endianess)-unquote(sign)-size(unquote(data_size))>> =
-                  value
-
-                res
+              _ ->
+                try do
+                  <<res::unquote(a_type)-unquote(endianess)-unquote(sign)-size(unquote(data_size))>> =
+                    value
+                  res
+                rescue
+                _->
+                  "null"
+                end
             end
 
           {encode_value, values_tail}
@@ -127,11 +131,11 @@ defmodule Coder do
       end
     end
 
-    def encode(unquote(data_type), raw_data),
-      do: encode_spec(unquote(data_type), raw_data)
-
     def decode(unquote(data_type), raw_data),
       do: decode_spec(unquote(data_type), raw_data)
+
+    def encode(unquote(data_type), raw_data),
+      do: encode_spec(unquote(data_type), raw_data)
   end
 
   defmacro encode_spec(data_type, _raw_data) do

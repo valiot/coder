@@ -172,6 +172,11 @@ defmodule CoderTest do
            ]
   end
 
+  test "Coder catch encoding errors with nulls" do
+    assert encode_all(["float32_be"], <<255, 255, 0, 0>>, []) == ["null"]
+    assert encode_all(["float32_be"], <<255, 255, 255, 0>>, []) == ["null"]
+  end
+
   test "Decode all supported data types" do
     assert decode("uint8", 65500) == <<0xDC>>
     assert decode("int8", 65500) == <<0xDC>>
