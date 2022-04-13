@@ -221,4 +221,58 @@ defmodule CoderTest do
     lt_bin = binary_to_list(int_bin, [])
     assert lt_bin == [110]
   end
+
+  describe "change_bytes_order/2" do
+    test "2 bytes length" do
+      assert change_bytes_order("0", <<0x01>>) == <<0x01>>
+      assert change_bytes_order("10", <<0x01, 0x00>>) == <<0x01, 0x00>>
+      assert change_bytes_order("01", <<0x01, 0x00>>) == <<0x00, 0x01>>
+
+      assert change_bytes_order("0123", <<5, 233, 0, 1>>) == <<1, 0, 233, 5>>
+      assert change_bytes_order("0132", <<5, 233, 0, 1>>) == <<1, 0, 5, 233>>
+      assert change_bytes_order("0213", <<5, 233, 0, 1>>) == <<1, 233, 0, 5>>
+      assert change_bytes_order("0231", <<5, 233, 0, 1>>) == <<1, 233, 5, 0>>
+      assert change_bytes_order("0312", <<5, 233, 0, 1>>) == <<1, 5, 0, 233>>
+      assert change_bytes_order("0321", <<5, 233, 0, 1>>) == <<1, 5, 233, 0>>
+      assert change_bytes_order("1023", <<5, 233, 0, 1>>) == <<0, 1, 233, 5>>
+
+      assert change_bytes_order("1032", <<5, 233, 0, 1>>) == <<0, 1, 5, 233>>
+
+      assert change_bytes_order("1203", <<5, 233, 0, 1>>) == <<0, 233, 1, 5>>
+      assert change_bytes_order("1230", <<5, 233, 0, 1>>) == <<0, 233, 5, 1>>
+      assert change_bytes_order("1302", <<5, 233, 0, 1>>) == <<0, 5, 1, 233>>
+      assert change_bytes_order("1320", <<5, 233, 0, 1>>) == <<0, 5, 233, 1>>
+      assert change_bytes_order("2013", <<5, 233, 0, 1>>) == <<233, 1, 0, 5>>
+      assert change_bytes_order("2031", <<5, 233, 0, 1>>) == <<233, 1, 5, 0>>
+      assert change_bytes_order("2103", <<5, 233, 0, 1>>) == <<233, 0, 1, 5>>
+      assert change_bytes_order("2130", <<5, 233, 0, 1>>) == <<233, 0, 5, 1>>
+      assert change_bytes_order("2301", <<5, 233, 0, 1>>) == <<233, 5, 1, 0>>
+      assert change_bytes_order("2310", <<5, 233, 0, 1>>) == <<233, 5, 0, 1>>
+      assert change_bytes_order("3012", <<5, 233, 0, 1>>) == <<5, 1, 0, 233>>
+      assert change_bytes_order("3021", <<5, 233, 0, 1>>) == <<5, 1, 233, 0>>
+      assert change_bytes_order("3102", <<5, 233, 0, 1>>) == <<5, 0, 1, 233>>
+      assert change_bytes_order("3120", <<5, 233, 0, 1>>) == <<5, 0, 233, 1>>
+      assert change_bytes_order("3201", <<5, 233, 0, 1>>) == <<5, 233, 1, 0>>
+      assert change_bytes_order("3210", <<5, 233, 0, 1>>) == <<5, 233, 0, 1>>
+    end
+
+    test "Raise expected error" do
+      assert_raise RuntimeError, fn() -> change_bytes_order("3210", <<0x01, 0x00>>) end
+      assert_raise RuntimeError, fn() -> change_bytes_order("10", <<0x01, 0x00, 0xFF>>) end
+
+      assert_raise RuntimeError, fn() -> change_bytes_order("3210", <<0x01, 0x00, 0xFF>>) end
+      assert_raise RuntimeError, fn() -> change_bytes_order("3210", <<>>) end
+
+      assert_raise RuntimeError, fn() -> change_bytes_order("43210", <<5, 233, 0, 1>>) end
+      assert_raise RuntimeError, fn() -> change_bytes_order("43210", <<1, 5, 233, 0, 1>>) end
+    end
+  end
+
+  test "change_bytes_string_order/2" do
+    binary = <<5, 233, 0, 1, 103, 5, 233, 0, 1>>
+    swap_type_list = ["1032", "0", "3210"]
+    new_order = change_bytes_string_order(swap_type_list, binary)
+    expected_order = <<0, 1, 5, 233, 103, 5, 233, 0, 1>>
+    assert new_order == expected_order
+  end
 end

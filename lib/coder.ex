@@ -75,10 +75,11 @@ defmodule Coder do
                 try do
                   <<res::unquote(a_type)-unquote(endianess)-unquote(sign)-size(unquote(data_size))>> =
                     value
+
                   res
                 rescue
-                _->
-                  "null"
+                  _ ->
+                    "null"
                 end
             end
 
@@ -192,5 +193,71 @@ defmodule Coder do
     bytes = <<value::size(n_bits)>>
     acc = acc <> bytes
     list_to_binary(tail, n_bits, acc)
+  end
+
+  def change_bytes_order("0", <<b0>>), do: <<b0>>
+
+  def change_bytes_order("10", <<b1, b0>>), do: <<b1, b0>>
+  def change_bytes_order("01", <<b1, b0>>), do: <<b0, b1>>
+
+  def change_bytes_order(swap_type, <<_b1, _b0>>),
+    do: raise("Unsupported bytes order change: #{swap_type} for two bytes.")
+
+  def change_bytes_order(swap_type, <<_b1, _b0, _rest::binary>>) when swap_type in ["10", "01"],
+    do:
+      raise(
+        "The Swap type \"10\" and \"01\" are only for binaries with only two bytes (<<byte1, byte0>>)."
+      )
+
+  def change_bytes_order("0123", <<b3, b2, b1, b0>>), do: <<b0, b1, b2, b3>>
+  def change_bytes_order("0132", <<b3, b2, b1, b0>>), do: <<b0, b1, b3, b2>>
+  def change_bytes_order("0213", <<b3, b2, b1, b0>>), do: <<b0, b2, b1, b3>>
+  def change_bytes_order("0231", <<b3, b2, b1, b0>>), do: <<b0, b2, b3, b1>>
+  def change_bytes_order("0312", <<b3, b2, b1, b0>>), do: <<b0, b3, b1, b2>>
+  def change_bytes_order("0321", <<b3, b2, b1, b0>>), do: <<b0, b3, b2, b1>>
+
+  def change_bytes_order("1023", <<b3, b2, b1, b0>>), do: <<b1, b0, b2, b3>>
+  def change_bytes_order("1032", <<b3, b2, b1, b0>>), do: <<b1, b0, b3, b2>>
+  def change_bytes_order("1203", <<b3, b2, b1, b0>>), do: <<b1, b2, b0, b3>>
+  def change_bytes_order("1230", <<b3, b2, b1, b0>>), do: <<b1, b2, b3, b0>>
+  def change_bytes_order("1302", <<b3, b2, b1, b0>>), do: <<b1, b3, b0, b2>>
+  def change_bytes_order("1320", <<b3, b2, b1, b0>>), do: <<b1, b3, b2, b0>>
+
+  def change_bytes_order("2013", <<b3, b2, b1, b0>>), do: <<b2, b0, b1, b3>>
+  def change_bytes_order("2031", <<b3, b2, b1, b0>>), do: <<b2, b0, b3, b1>>
+  def change_bytes_order("2103", <<b3, b2, b1, b0>>), do: <<b2, b1, b0, b3>>
+  def change_bytes_order("2130", <<b3, b2, b1, b0>>), do: <<b2, b1, b3, b0>>
+  def change_bytes_order("2301", <<b3, b2, b1, b0>>), do: <<b2, b3, b0, b1>>
+  def change_bytes_order("2310", <<b3, b2, b1, b0>>), do: <<b2, b3, b1, b0>>
+
+  def change_bytes_order("3012", <<b3, b2, b1, b0>>), do: <<b3, b0, b1, b2>>
+  def change_bytes_order("3021", <<b3, b2, b1, b0>>), do: <<b3, b0, b2, b1>>
+  def change_bytes_order("3102", <<b3, b2, b1, b0>>), do: <<b3, b1, b0, b2>>
+  def change_bytes_order("3120", <<b3, b2, b1, b0>>), do: <<b3, b1, b2, b0>>
+  def change_bytes_order("3201", <<b3, b2, b1, b0>>), do: <<b3, b2, b0, b1>>
+  def change_bytes_order("3210", <<b3, b2, b1, b0>>), do: <<b3, b2, b1, b0>>
+
+  def change_bytes_order(swap_type, <<_b3, _b2, _b1, _b0>>),
+    do: raise("Unsupported bytes order change: #{swap_type}")
+
+  def change_bytes_order(_swap_type, <<_b3, _b2, _b1, _b0, _rest::binary>>),
+    do:
+      raise(
+        "The Swap types are only for binaries with only four bytes (<<byte3, byte2, byte1, byte0>>)."
+      )
+
+  def change_bytes_order(swap_type, binary),
+    do: raise("Incompatible Swap: #{swap_type} -> #{binary}")
+
+  def change_bytes_string_order(swap_type_list, binary) do
+    {new_binary, _remainders} =
+      for swap_type <- swap_type_list, reduce: {<<>>, binary} do
+        {acc, binary_rest} ->
+          n_bytes = String.length(swap_type)
+          {current_bytes, new_rest} = String.split_at(binary_rest, n_bytes)
+          {acc <> change_bytes_order(swap_type, current_bytes), new_rest}
+      end
+
+    new_binary
   end
 end
