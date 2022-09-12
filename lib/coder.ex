@@ -68,7 +68,10 @@ defmodule Coder do
                 if unquote(str_endian) == "be" do
                   value
                 else
-                  String.reverse(value)
+                  value
+                  |> :binary.bin_to_list()
+                  |> Enum.reverse()
+                  |> :binary.list_to_bin()
                 end
 
               _ ->
@@ -254,10 +257,22 @@ defmodule Coder do
       for swap_type <- swap_type_list, reduce: {<<>>, binary} do
         {acc, binary_rest} ->
           n_bytes = String.length(swap_type)
-          {current_bytes, new_rest} = String.split_at(binary_rest, n_bytes)
+          {current_bytes, new_rest, _position} = split_binary_at(binary_rest, n_bytes)
           {acc <> change_bytes_order(swap_type, current_bytes), new_rest}
       end
 
     new_binary
+  end
+
+  def split_binary_at(bitstring, position) do
+    for <<binary <- bitstring>>, reduce: {<<>>, <<>>, 1} do
+      {before_position, after_postion, current_position} ->
+        {before_position, after_postion} =
+          if current_position <= position,
+            do: {before_position <> <<binary>>, after_postion},
+            else: {before_position, after_postion <> <<binary>>}
+
+        {before_position, after_postion, current_position + 1}
+    end
   end
 end

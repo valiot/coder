@@ -268,11 +268,21 @@ defmodule CoderTest do
     end
   end
 
-  test "change_bytes_string_order/2" do
-    binary = <<5, 233, 0, 1, 103, 5, 233, 0, 1>>
-    swap_type_list = ["1032", "0", "3210"]
-    new_order = change_bytes_string_order(swap_type_list, binary)
-    expected_order = <<0, 1, 5, 233, 103, 5, 233, 0, 1>>
-    assert new_order == expected_order
+  describe "change_bytes_string_order/2" do
+    test "Example 1" do
+      binary = <<5, 233, 0, 1, 103, 5, 233, 0, 1>>
+      swap_type_list = ["1032", "0", "3210"]
+      new_order = change_bytes_string_order(swap_type_list, binary)
+      expected_order = <<0, 1, 5, 233, 103, 5, 233, 0, 1>>
+      assert new_order == expected_order
+    end
+
+    test "Example 2" do
+      binary = <<203, 188, 0, 108, 236, 194, 0, 203, 178, 166, 0, 63, 162, 201, 0, 52>>
+      swap_type_list = ["1032", "1032", "1032", "1032"]
+      new_order = change_bytes_string_order(swap_type_list, binary)
+      expected_order = <<0, 108, 203, 188, 0, 203, 236, 194, 0, 63, 178, 166, 0, 52, 162, 201>>
+      assert new_order == expected_order
+    end
   end
 end

@@ -17,5 +17,12 @@ defmodule IntegrationTest do
     swap_type_list = ["10", "10"]
     new_order = change_bytes_string_order(swap_type_list, binary)
     assert [1513, 1] == encode_all(["uint16_be", "uint16_be"], new_order, [])
+
+    binary = <<203, 188, 0, 108, 236, 194, 0, 203, 178, 166, 0, 63, 162, 201, 0, 52>>
+    swap_type_list = ["1032", "1032", "1032", "1032"]
+    new_order = change_bytes_string_order(swap_type_list, binary)
+
+    assert [7_130_044, 13_364_418, 4_174_502, 3_449_545] ==
+             encode_all(["int32_be", "int32_be", "int32_be", "int32_be"], new_order, [])
   end
 end
