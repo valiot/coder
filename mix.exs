@@ -1,13 +1,37 @@
 defmodule Coder.MixProject do
   use Mix.Project
 
+  @version "0.1.1"
+  @source_url "https://github.com/valiot/coder"
+
   def project do
     [
       app: :coder,
-      version: "0.1.0",
+      version: @version,
+      package: package(),
+      description: description(),
       elixir: "~> 1.7",
       start_permanent: Mix.env() == :prod,
       deps: deps()
+    ]
+  end
+
+  defp description() do
+    "Elixir helper to decode/encode multiple data types."
+  end
+
+  defp package() do
+    [
+      files: [
+        "lib",
+        "test",
+        "mix.exs",
+        "README.md",
+        "LICENSE"
+      ],
+      maintainers: ["valiot"],
+      licenses: ["MIT"],
+      links: %{"GitHub" => @source_url}
     ]
   end
 
